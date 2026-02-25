@@ -57,6 +57,80 @@ services:
     networks:
       - soc-net
 
+  # Case Service (Mock for MVP)
+  case-service:
+    build: ./case-service
+    ports:
+      - "8004:8004"
+    environment:
+      - CASE_SERVICE_NAME=case-service
+      - CASE_LOG_LEVEL=INFO
+      - CASE_PORT=8004
+      - CASE_INTERNAL_AUTH_TOKEN=soc-internal-token-v1
+    networks:
+      - soc-net
+    depends_on:
+      - kafka
+    restart: unless-stopped
+
+  # Agent Trigger Service
+  agent-trigger-service:
+    build: ./agents-service
+    command: ["uv", "run", "python", "trigger.py"]
+    ports:
+      - "8002:8002"
+    environment:
+      - TRIGGER_SERVICE_NAME=agent-trigger-service
+      - TRIGGER_LOG_LEVEL=INFO
+      - TRIGGER_PORT=8002
+      - TRIGGER_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - TRIGGER_KAFKA_INPUT_TOPIC=detection-events
+      - TRIGGER_KAFKA_GROUP_ID=agent-trigger-v1
+      - TRIGGER_KAFKA_AUTO_OFFSET_RESET=earliest
+      - TRIGGER_CREWAI_SERVICE_URL=http://crewai-service:8003
+      - TRIGGER_CREWAI_KICKOFF_ENDPOINT=/kickoff
+      - TRIGGER_INTERNAL_AUTH_TOKEN=soc-internal-token-v1
+    networks:
+      - soc-net
+    depends_on:
+      - kafka
+      - crewai-service
+    restart: unless-stopped
+
+  # CrewAI Service
+  crewai-service:
+    build: ./agents-service
+    command: ["uv", "run", "python", "crewai.py"]
+    ports:
+      - "8003:8003"
+    environment:
+      - CREWAI_SERVICE_NAME=crewai-service
+      - CREWAI_LOG_LEVEL=INFO
+      - CREWAI_PORT=8003
+      - CREWAI_LLM_PROVIDER=openrouter
+      - CREWAI_LLM_API_KEY=${OPENROUTER_API_KEY:-}
+      - CREWAI_LLM_API_BASE=https://openrouter.ai/api/v1
+      - CREWAI_LLM_MODEL=openai/gpt-4
+      - CREWAI_LLM_TEMPERATURE=0.1
+      - CREWAI_LLM_MAX_TOKENS=4096
+      - CREWAI_LLM_CACHE_ENABLED=true
+      - CREWAI_LLM_CACHE_TTL_SECONDS=3600
+      - CREWAI_NORMALIZER_SERVICE_URL=http://normalizer-service:8001
+      - CREWAI_NORMALIZER_LOG_QUERY_ENDPOINT=/internal/query-logs
+      - CREWAI_CASE_SERVICE_URL=http://case-service:8004
+      - CREWAI_CASE_ACTION_ENDPOINT=/internal/case-action
+      - CREWAI_AGENT_OUTPUT_ENDPOINT=/internal/agent-output
+      - CREWAI_INTERNAL_AUTH_TOKEN=soc-internal-token-v1
+      - CREWAI_MAX_FLOW_DURATION_SECONDS=3600
+      - CREWAI_AGENT_TIMEOUT_SECONDS=300
+    networks:
+      - soc-net
+    depends_on:
+      - case-service
+      - normalizer-service
+      - kafka
+    restart: unless-stopped
+
 networks:
   soc-net:
     driver: bridge

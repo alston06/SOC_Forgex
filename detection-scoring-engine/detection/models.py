@@ -1,8 +1,8 @@
 """Pydantic models for detection events."""
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class NormalizedActivityEvent(BaseModel):
@@ -47,31 +47,39 @@ class DetectionStatus(str):
 
 
 class DetectionEvent(BaseModel):
-    """Detection event from rule evaluation."""
+    """Detection event from rule evaluation.
 
-    # Core identification
+    Updated to match SPEC-AGENTS.md specification while maintaining
+    backward compatibility with existing fields.
+    """
+
+    # Core identification (spec-compliant)
     detection_id: str
     tenant_id: str
-    detection_timestamp: datetime
+    timestamp: datetime = Field(..., alias="detection_timestamp")  # Alias for backward compat
 
-    # Rule information
-    rule_name: str
+    # Rule information (spec-compliant)
     rule_id: str
-    rule_description: str
     severity: str
+    triggered_events: List[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    description: str = Field(..., alias="rule_description")  # Alias for backward compat
+
+    # New spec fields
+    entities: Dict[str, List[str]] = Field(default_factory=dict)
+    evidence: Dict[str, Any] = Field(default_factory=dict)
+
+    # Legacy fields (kept for backward compatibility)
+    rule_name: Optional[str] = None
     status: str = DetectionStatus.OPEN
-
-    # Triggering event
-    triggering_event: NormalizedActivityEvent
-
-    # Context from OS queries
+    triggering_event: Optional[NormalizedActivityEvent] = None
     context: Dict[str, Any] = Field(default_factory=dict)
 
-    # Scoring
+    # Scoring (risk_score is separate from confidence)
     risk_score: float = Field(default=0.0, ge=0.0, le=1.0)
 
     # Metadata
     created_at: datetime = Field(default_factory=datetime.utcnow)
     correlation_id: Optional[str] = None
 
-    model_config = {"json_encoders": {datetime: lambda v: v.isoformat()}}
+    model_config = {"json_encoders": {datetime: lambda v: v.isoformat()}, "populate_by_name": True}
