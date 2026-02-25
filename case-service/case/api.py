@@ -1,9 +1,10 @@
 """Internal API endpoints for case service."""
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from typing import List, Optional
 import structlog
 
 from .config import settings
-from .models import CaseActionRequest, CaseActionResponse, AgentOutputRequest, AgentOutputResponse
+from .models import CaseActionRequest, CaseActionResponse, AgentOutputRequest, AgentOutputResponse, Case
 from .storage import storage
 
 logger = structlog.get_logger(__name__)
@@ -123,3 +124,21 @@ async def agent_output(request: AgentOutputRequest) -> AgentOutputResponse:
 
     logger.info("Agent output stored", case_id=request.case_id)
     return AgentOutputResponse(case_id=request.case_id, status="stored")
+
+
+@router.get(
+    "/cases",
+    dependencies=[Depends(internal_auth)],
+    response_model=List[Case],
+)
+async def list_cases(
+    tenant_id: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+) -> List[Case]:
+    """List cases, optionally filtered by tenant."""
+    logger.info(
+        "Listing cases",
+        tenant_id=tenant_id,
+        limit=limit,
+    )
+    return storage.list_cases(tenant_id=tenant_id, limit=limit)

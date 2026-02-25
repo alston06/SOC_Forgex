@@ -1,5 +1,7 @@
 """Incident Analyst Agent for CrewAI."""
 from crewai import Agent
+from ..crewai.config import get_crewai_llm
+from ..crewai.tool_wrappers import query_logs_sync
 
 incident_analyst = Agent(
     role="Incident Analyst",
@@ -12,7 +14,8 @@ incident_analyst = Agent(
     ),
     verbose=True,
     allow_delegation=False,
+    llm=get_crewai_llm(),
     tools=[
-        # Tools for deep log analysis and pattern recognition
+        query_logs_sync,
     ],
 )

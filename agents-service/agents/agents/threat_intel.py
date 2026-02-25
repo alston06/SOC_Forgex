@@ -1,5 +1,7 @@
 """Threat Intel Agent for CrewAI."""
 from crewai import Agent
+from ..crewai.config import get_crewai_llm
+from ..crewai.tool_wrappers import query_logs_sync
 
 threat_intel = Agent(
     role="Threat Intelligence Analyst",
@@ -12,7 +14,8 @@ threat_intel = Agent(
     ),
     verbose=True,
     allow_delegation=False,
+    llm=get_crewai_llm(),
     tools=[
-        # Tools for threat enrichment and pattern analysis
+        query_logs_sync,
     ],
 )

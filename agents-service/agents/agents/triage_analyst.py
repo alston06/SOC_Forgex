@@ -1,5 +1,7 @@
 """Triage Analyst Agent for CrewAI."""
 from crewai import Agent
+from ..crewai.config import get_crewai_llm
+from ..crewai.tool_wrappers import query_logs_sync
 
 triage_analyst = Agent(
     role="Triage Analyst",
@@ -12,7 +14,8 @@ triage_analyst = Agent(
     ),
     verbose=True,
     allow_delegation=False,
+    llm=get_crewai_llm(),
     tools=[
-        # Tools for querying logs and analyzing patterns
+        query_logs_sync,
     ],
 )

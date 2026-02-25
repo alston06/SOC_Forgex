@@ -1,6 +1,7 @@
 """Configuration for the CrewAI service."""
 from pathlib import Path
 from pydantic_settings import BaseSettings
+from langchain_openai import ChatOpenAI
 
 
 class Settings(BaseSettings):
@@ -43,3 +44,22 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_crewai_llm():
+    """Get LangChain LLM instance for CrewAI."""
+    if settings.llm_provider == "openrouter":
+        return ChatOpenAI(
+            model=settings.llm_model,
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_api_base,
+            temperature=settings.llm_temperature,
+            max_tokens=settings.llm_max_tokens,
+        )
+    else:  # openai
+        return ChatOpenAI(
+            model=settings.llm_model,
+            api_key=settings.llm_api_key,
+            temperature=settings.llm_temperature,
+            max_tokens=settings.llm_max_tokens,
+        )

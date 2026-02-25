@@ -1,12 +1,12 @@
 """Orchestrator Agent (Incident Commander) for CrewAI."""
 from crewai import Agent
-
-from ..crewai.tools.case_tool import (
-    case_tool_open,
-    case_tool_update,
-    case_tool_close,
+from ..crewai.config import get_crewai_llm
+from ..crewai.tool_wrappers import (
+    open_case_sync,
+    update_case_sync,
+    close_case_sync,
+    store_agent_output_sync,
 )
-from ..crewai.tools.agent_output import agent_output_tool
 
 orchestrator_agent = Agent(
     role="Orchestrator (Incident Commander)",
@@ -19,7 +19,11 @@ orchestrator_agent = Agent(
     ),
     verbose=True,
     allow_delegation=False,
+    llm=get_crewai_llm(),
     tools=[
-        # Tools are async, so we handle them differently in the orchestrator
+        open_case_sync,
+        update_case_sync,
+        close_case_sync,
+        store_agent_output_sync,
     ],
 )
