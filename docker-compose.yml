@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Kafka with Zookeeper
   zookeeper:
@@ -31,6 +29,37 @@ services:
     networks:
       - soc-net
 
+  # MongoDB
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: soc_db
+    volumes:
+      - mongo-data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - soc-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - soc-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # OpenSearch
   opensearch:
     image: opensearchproject/opensearch:2.15.0
@@ -41,6 +70,8 @@ services:
     ports:
       - "9200:9200"
       - "9600:9600"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
     networks:
       - soc-net
     healthcheck:
@@ -74,9 +105,42 @@ services:
     networks:
       - soc-net
     depends_on:
-      - kafka
-      - opensearch
-      - user-service
+      kafka:
+        condition: service_started
+      opensearch:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    restart: unless-stopped
+
+  # Detection & Scoring Engine
+  detection-service:
+    build: ./detection-scoring-engine
+    command: ["uv", "run", "python", "main.py"]
+    ports:
+      - "8005:8005"
+    environment:
+      - DETECTION_SERVICE_NAME=detection
+      - DETECTION_LOG_LEVEL=INFO
+      - DETECTION_PORT=8005
+      - DETECTION_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DETECTION_KAFKA_CONSUMER_GROUP=detections-v1
+      - DETECTION_KAFKA_INPUT_TOPIC=normalized-activity
+      - DETECTION_KAFKA_OUTPUT_TOPIC=detection-events
+      - DETECTION_OPENSEARCH_URL=http://opensearch:9200
+      - DETECTION_OPENSEARCH_USERNAME=admin
+      - DETECTION_OPENSEARCH_PASSWORD=admin
+      - DETECTION_DETECTION_INDEX_PREFIX=detections-
+      - DETECTION_NORMALIZED_INDEX_PREFIX=logs-
+      - DETECTION_INTERNAL_AUTH_TOKEN=soc-internal-token-v1
+      - DETECTION_OS_QUERY_TIMEOUT=5
+    networks:
+      - soc-net
+    depends_on:
+      kafka:
+        condition: service_started
+      opensearch:
+        condition: service_healthy
     restart: unless-stopped
 
   # User Service (mock for role enrichment)
@@ -87,7 +151,7 @@ services:
     networks:
       - soc-net
 
-  # Case Service (Mock for MVP)
+  # Case Service
   case-service:
     build: ./case-service
     ports:
@@ -97,10 +161,18 @@ services:
       - CASE_LOG_LEVEL=INFO
       - CASE_PORT=8004
       - CASE_INTERNAL_AUTH_TOKEN=soc-internal-token-v1
+      - MONGO_URI=mongodb://mongo:27017
+      - DB_NAME=soc_db
+      - INTERNAL_TOKEN=soc-internal-token-v1
+      - NORMALIZER_SERVICE_URL=http://normalizer-service:8001
+      - DETECTION_SERVICE_URL=http://detection-service:8005
     networks:
       - soc-net
     depends_on:
-      - kafka
+      mongo:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     restart: unless-stopped
 
   # Agent Trigger Service
@@ -130,7 +202,9 @@ services:
   # CrewAI Service
   crewai-service:
     build: ./agents-service
-    command: ["uv", "run", "python", "crewai.py"]
+    command: ["uv", "run", "python", "crewai_service.py"]
+    env_file:
+      - .env
     ports:
       - "8003:8003"
     environment:
@@ -138,8 +212,12 @@ services:
       - CREWAI_LOG_LEVEL=INFO
       - CREWAI_PORT=8003
       - CREWAI_LLM_PROVIDER=openrouter
-      - CREWAI_LLM_API_KEY=${OPENROUTER_API_KEY:-}
+      - CREWAI_LLM_API_KEY=${OPENROUTER_API_KEY}
       - CREWAI_LLM_API_BASE=https://openrouter.ai/api/v1
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENAI_API_KEY=${OPENROUTER_API_KEY}
+      - OPENAI_API_BASE=https://openrouter.ai/api/v1
+      - OPENAI_MODEL_NAME=openrouter/openai/gpt-4
       - CREWAI_LLM_MODEL=openai/gpt-4
       - CREWAI_LLM_TEMPERATURE=0.1
       - CREWAI_LLM_MAX_TOKENS=4096
@@ -156,9 +234,29 @@ services:
     networks:
       - soc-net
     depends_on:
-      - case-service
-      - normalizer-service
-      - kafka
+      case-service:
+        condition: service_started
+      normalizer-service:
+        condition: service_started
+      kafka:
+        condition: service_started
+    restart: unless-stopped
+
+  # SOC Dashboard (Streamlit)
+  soc-dashboard:
+    build: ./soc-case-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - CASE_SERVICE_URL=http://case-service:8004
+      - DETECTION_SERVICE_URL=http://detection-service:8005
+    networks:
+      - soc-net
+    depends_on:
+      case-service:
+        condition: service_started
+      detection-service:
+        condition: service_started
     restart: unless-stopped
 
 networks:
@@ -168,3 +266,4 @@ networks:
 volumes:
   kafka-data:
   opensearch-data:
+  mongo-data:

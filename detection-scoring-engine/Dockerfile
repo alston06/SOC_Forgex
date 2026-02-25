@@ -13,9 +13,10 @@ RUN uv sync --frozen
 
 # Copy application code
 COPY detection/ ./detection/
+COPY main.py ./
 
 # Expose port
 EXPOSE 8005
 
 # Run with uvicorn
-CMD ["uv", "run", "uvicorn", "detection.app:app", "--host", "0.0.0.0", "--port", "8005"]
+CMD ["uv", "run", "python", "main.py"]

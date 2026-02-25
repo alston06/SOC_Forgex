@@ -9,13 +9,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY pyproject.toml ./
 
 # Install dependencies
-RUN uv sync --frozen
+RUN uv sync
 
 # Copy code
 COPY agents/ ./agents/
+COPY trigger.py ./
+COPY crewai_service.py ./
 
 # Expose both ports
 EXPOSE 8002 8003
 
 # Default to crewai service (override with docker-compose command)
-CMD ["uv", "run", "python", "crewai.py"]
+CMD ["uv", "run", "python", "crewai_service.py"]

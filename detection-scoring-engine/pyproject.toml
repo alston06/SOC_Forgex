@@ -2,7 +2,6 @@
 name = "detection-scoring-engine"
 version = "0.1.0"
 description = "SOC Detection and Scoring Engine - Evaluates normalized events against security rules"
-readme = "README.md"
 requires-python = ">=3.11"
 
 dependencies = [

@@ -1,5 +1,5 @@
 """CaseTool for CrewAI agents."""
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 import httpx
 import structlog
 

@@ -2,7 +2,7 @@
 import structlog
 
 from ..models import CrewTaskContext
-from .crew import run_crewai_crew
+from .crew_runner import run_crewai_crew
 
 logger = structlog.get_logger(__name__)
 

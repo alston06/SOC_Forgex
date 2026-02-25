@@ -1,7 +1,7 @@
 """CrewAI crew definition for incident analysis."""
 from crewai import Crew, Process
 from ..models import CrewTaskContext, DetectionEvent
-from ..tasks import create_tasks
+from .tasks import create_tasks
 import structlog
 
 logger = structlog.get_logger(__name__)
