@@ -17,7 +17,7 @@ def list_incidents(status: str = "OPEN", tenant_id: str = Depends(resolve_tenant
     ))
 
     for i in incidents:
-        i["id"] = i.pop("_id")
+        i["id"] = str(i.pop("_id"))
 
     return incidents
 
@@ -29,7 +29,7 @@ def get_incident(id: str, tenant_id: str = Depends(resolve_tenant)):
         raise HTTPException(status_code=404, detail="incident not found")
 
     incident_resp = dict(incident)
-    incident_resp["id"] = incident_resp.pop("_id")
+    incident_resp["id"] = str(incident_resp.pop("_id"))
 
     detection = None
     logs = []

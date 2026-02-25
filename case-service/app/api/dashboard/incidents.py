@@ -27,7 +27,7 @@ def list_incidents(
     )
 
     for i in incidents:
-        i["id"] = i.pop("_id")
+        i["id"] = str(i.pop("_id"))
         if isinstance(i.get("created_at"), datetime):
             i["created_at"] = i["created_at"].isoformat()
         if isinstance(i.get("updated_at"), datetime):
@@ -48,7 +48,7 @@ def get_incident(incident_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Incident not found")
 
     incident_resp = dict(incident)
-    incident_resp["id"] = incident_resp.pop("_id")
+    incident_resp["id"] = str(incident_resp.pop("_id"))
 
     for field in ["created_at", "updated_at"]:
         if isinstance(incident_resp.get(field), datetime):

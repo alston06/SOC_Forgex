@@ -42,6 +42,7 @@ def render(base_url: str):
                             )
                             st.session_state.jwt_token = result["token"]
                             st.session_state.user = result["user"]
+                            st.session_state._save_auth = True
                             st.rerun()
                         except Exception as exc:
                             detail = ""
@@ -96,6 +97,7 @@ def render(base_url: str):
                             )
                             st.session_state.jwt_token = result["token"]
                             st.session_state.user = result["user"]
+                            st.session_state._save_auth = True
                             st.success("Account created successfully!")
                             st.rerun()
                         except Exception as exc:

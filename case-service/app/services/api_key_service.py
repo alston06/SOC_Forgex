@@ -42,7 +42,7 @@ def list_api_keys(tenant_id: str) -> list:
     for key in keys:
         result.append(
             {
-                "id": key["_id"],
+                "id": str(key["_id"]),
                 "name": key.get("name", key.get("service_name", "Unnamed Key")),
                 "prefix": key.get("key_prefix", "***"),
                 "active": key.get("active", True),

@@ -42,7 +42,7 @@ def get_stats(user: dict = Depends(get_current_user)):
         .limit(10)
     )
     for i in recent:
-        i["id"] = i.pop("_id")
+        i["id"] = str(i.pop("_id"))
         if isinstance(i.get("created_at"), datetime):
             i["created_at"] = i["created_at"].isoformat()
         if isinstance(i.get("updated_at"), datetime):
