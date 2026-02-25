@@ -1,0 +1,17 @@
+[project]
+name = "soc-ingestion"
+version = "0.1.0"
+description = "Ingestion API for the SOC Forgex platform — receives telemetry from the Security SDK and publishes to Kafka."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "pydantic>=2.0,<3",
+    "pydantic-settings>=2.0",
+    "pymongo>=4.0,<5",
+    "redis>=5.0,<6",
+    "aiokafka>=0.10,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

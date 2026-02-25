@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "forgex-security-sdk"
+version = "0.1.0"
+description = "Python SDK for SOC Forgex — captures HTTP activity from your FastAPI / ASGI apps and streams it to the Forgex ingestion pipeline for real-time threat detection."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "SOC Forgex Contributors" },
+]
+keywords = ["security", "soc", "telemetry", "monitoring", "fastapi", "middleware"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.0,<3",
+    "requests>=2.28,<3",
+]
+
+[project.optional-dependencies]
+fastapi = [
+    "fastapi>=0.100",
+    "starlette>=0.27",
+]
+dev = [
+    "pytest>=7",
+    "pytest-asyncio>=0.21",
+    "httpx>=0.24",
+    "fastapi>=0.100",
+    "starlette>=0.27",
+]
+
+[project.urls]
+Homepage = "https://github.com/alston06/SOC_Forgex"
+Repository = "https://github.com/alston06/SOC_Forgex"
+Issues = "https://github.com/alston06/SOC_Forgex/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["security_sdk"]

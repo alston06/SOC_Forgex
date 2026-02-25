@@ -24,14 +24,19 @@ db.createCollection('tenant_webhooks');
 db.tenant_webhooks.createIndex({ "tenant_id": 1 });
 db.tenant_webhooks.createIndex({ "active": 1 });
 
+// Create dashboard_users collection with indexes
+db.createCollection('dashboard_users');
+db.dashboard_users.createIndex({ "username": 1 }, { unique: true });
+db.dashboard_users.createIndex({ "tenant_id": 1 });
+
 // Create ingestion_metrics collection with indexes
 db.createCollection('ingestion_metrics');
 db.ingestion_metrics.createIndex({ "tenant_id": 1, "timestamp": -1 });
 
 // Insert a sample API key for testing (hash of "test-api-key-123")
-// SHA256("test-api-key-123") = 4f9c461f8a5f8c8f7a3f9e9c5e1c3f2e8b9a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e
+// SHA256("test-api-key-123") = a2e4ab0472c808a1ff2ce147ae4f6cd9ecd8bcc8a49c48350f97e6811ace7464
 db.api_keys.insertOne({
-    "key_hash": "4f9c461f8a5f8c8f7a3f9e9c5e1c3f2e8b9a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e",
+    "key_hash": "a2e4ab0472c808a1ff2ce147ae4f6cd9ecd8bcc8a49c48350f97e6811ace7464",
     "tenant_id": "tenant-demo-001",
     "service_name": "demo-service",
     "environment": "development",

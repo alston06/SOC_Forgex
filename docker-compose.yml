@@ -80,6 +80,31 @@ services:
       timeout: 5s
       retries: 5
 
+  # Ingestion Service (receives SDK telemetry, publishes to Kafka)
+  ingestion-service:
+    build: ./soc-ingestion
+    ports:
+      - "8000:8000"
+    environment:
+      - INGESTION_SERVICE_NAME=soc-ingestion
+      - INGESTION_PORT=8000
+      - INGESTION_MONGO_URI=mongodb://mongo:27017
+      - INGESTION_DB_NAME=soc_db
+      - INGESTION_REDIS_URL=redis://redis:6379/0
+      - INGESTION_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - INGESTION_KAFKA_TOPIC=raw-activity
+      - INGESTION_RATE_LIMIT_PER_MINUTE=300
+    networks:
+      - soc-net
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    restart: unless-stopped
+
   # Normalizer Service
   normalizer-service:
     build: ./normalizer-service
@@ -164,8 +189,9 @@ services:
       - MONGO_URI=mongodb://mongo:27017
       - DB_NAME=soc_db
       - INTERNAL_TOKEN=soc-internal-token-v1
-      - NORMALIZER_SERVICE_URL=http://normalizer-service:8001
+      - JWT_SECRET=soc-dashboard-jwt-secret-change-in-production
       - DETECTION_SERVICE_URL=http://detection-service:8005
+      - NORMALIZER_SERVICE_URL=http://normalizer-service:8001
     networks:
       - soc-net
     depends_on:

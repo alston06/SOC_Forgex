@@ -1,1 +1,1 @@
-# Pages module for dashboard
+# Dashboard modules
