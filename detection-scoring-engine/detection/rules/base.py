@@ -85,13 +85,15 @@ class BaseRule(ABC):
         event: NormalizedActivityEvent,
         context: Optional[Dict[str, Any]] = None,
         risk_score: float = 0.0,
+        confidence: Optional[float] = None,
     ) -> DetectionEvent:
         """Create a DetectionEvent from triggering event.
 
         Args:
             event: The triggering event
             context: Additional context from OS queries
-            risk_score: Calculated risk score
+            risk_score: Calculated risk score (0.0–1.0)
+            confidence: Confidence in the detection (0.0–1.0); defaults to risk_score
 
         Returns:
             DetectionEvent instance
@@ -109,4 +111,5 @@ class BaseRule(ABC):
             triggering_event=event,
             context=context or {},
             risk_score=risk_score,
+            confidence=confidence if confidence is not None else risk_score,
         )

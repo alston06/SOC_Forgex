@@ -70,7 +70,10 @@ class DataExfilRule(BaseRule):
 
             # Risk score based on bytes transferred
             risk_score = min(1.0, 0.7 + (bytes_transferred / 10_000_000))
+            # Confidence: scales with bytes magnitude
+            # 1MB → 0.67, 2MB → 0.73, 5MB → 0.93, caps at 0.95
+            confidence = min(0.95, 0.60 + bytes_transferred / 15_000_000)
 
-            return self.create_detection(event, context=context, risk_score=risk_score)
+            return self.create_detection(event, context=context, risk_score=risk_score, confidence=confidence)
 
         return None

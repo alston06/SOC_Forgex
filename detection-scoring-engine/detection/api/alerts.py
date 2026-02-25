@@ -90,14 +90,20 @@ async def get_alerts(
 
     time_to = datetime.now(timezone.utc)
 
+    # Strip timezone info so isoformat() produces naive strings that match how
+    # detection_timestamp is stored in OpenSearch (no +00:00 suffix).
+    time_from_naive = time_from.replace(tzinfo=None)
+    time_to_naive = time_to.replace(tzinfo=None)
+
     # Build OpenSearch query
+    # tenant_id is indexed as 'text' so use match instead of term
     must = [
-        {"term": {"tenant_id": tenant_id}},
+        {"match": {"tenant_id": tenant_id}},
         {
             "range": {
                 "detection_timestamp": {
-                    "gte": time_from.isoformat(),
-                    "lte": time_to.isoformat(),
+                    "gte": time_from_naive.isoformat(),
+                    "lte": time_to_naive.isoformat(),
                 }
             }
         },
@@ -111,14 +117,14 @@ async def get_alerts(
 
     query = {"bool": {"must": must}}
 
-    # Get indices for the time range
-    indices = _indices_for_range(tenant_id, time_from, time_to)
+    # Get indices for the time range (use naive datetimes for consistency)
+    indices = _indices_for_range(tenant_id, time_from_naive, time_to_naive)
 
     logger.debug(
         "Querying alerts",
         tenant_id=tenant_id,
         indices=indices,
-        since=time_from.isoformat(),
+        since=time_from_naive.isoformat(),
         limit=limit,
         rule_id=rule_id,
         severity=severity,

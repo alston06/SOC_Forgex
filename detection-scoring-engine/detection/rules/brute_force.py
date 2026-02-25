@@ -46,11 +46,11 @@ class BruteForceRule(BaseRule):
         query = {
             "bool": {
                 "must": [
-                    {"term": {"tenant_id": event.tenant_id}},
-                    {"term": {"event_type": "auth"}},
-                    {"term": {"action": "login_failed"}},
-                    {"term": {"actor": event.actor}},
-                    {"term": {"ip": event.ip}},
+                    {"match": {"tenant_id": event.tenant_id}},
+                    {"match": {"event_type": "auth"}},
+                    {"match": {"action": "login_failed"}},
+                    {"match": {"actor": event.actor}},
+                    {"match": {"ip": event.ip}},
                     {
                         "range": {
                             "timestamp": {
@@ -90,9 +90,12 @@ class BruteForceRule(BaseRule):
                 ],
             }
 
-            # Calculate risk score based on count
+            # Risk score: scales with attempt count
             risk_score = min(0.9, 0.5 + (len(failed_logins) / 50))
+            # Confidence: slow scale so 100 attempts → ~0.73, caps at 0.85
+            # (query size limit means count is always 5–100)
+            confidence = min(0.85, 0.60 + len(failed_logins) / 800)
 
-            return self.create_detection(event, context=context, risk_score=risk_score)
+            return self.create_detection(event, context=context, risk_score=risk_score, confidence=confidence)
 
         return None

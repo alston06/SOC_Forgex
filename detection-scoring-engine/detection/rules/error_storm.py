@@ -57,11 +57,11 @@ class ErrorStormRule(BaseRule):
         query = {
             "bool": {
                 "must": [
-                    {"term": {"tenant_id": event.tenant_id}},
-                    {"term": {"event_type": "http"}},
-                    {"term": {"ip": event.ip}},
-                    {"term": {"normalized_path": event.normalized_path}},
-                    {"term": {"extras.status_code": status_code}},
+                    {"match": {"tenant_id": event.tenant_id}},
+                    {"match": {"event_type": "http"}},
+                    {"match": {"ip": event.ip}},
+                    {"match": {"normalized_path": event.normalized_path}},
+                    {"match": {"extras.status_code": status_code}},
                     {
                         "range": {
                             "timestamp": {
@@ -102,7 +102,10 @@ class ErrorStormRule(BaseRule):
 
             # Risk score based on error count
             risk_score = min(0.85, 0.5 + (len(errors) / 200))
+            # Confidence: lower cap (error storms have higher false-positive rate)
+            # 50 errors → 0.48, 100 → 0.55, 200 → 0.67, caps at 0.75
+            confidence = min(0.75, 0.42 + len(errors) / 800)
 
-            return self.create_detection(event, context=context, risk_score=risk_score)
+            return self.create_detection(event, context=context, risk_score=risk_score, confidence=confidence)
 
         return None

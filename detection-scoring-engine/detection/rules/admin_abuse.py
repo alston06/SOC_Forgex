@@ -60,9 +60,9 @@ class AdminAbuseRule(BaseRule):
         query = {
             "bool": {
                 "must": [
-                    {"term": {"tenant_id": event.tenant_id}},
-                    {"term": {"actor": event.actor}},
-                    {"terms": {"action": list(ADMIN_ACTIONS)}},
+                    {"match": {"tenant_id": event.tenant_id}},
+                    {"match": {"actor": event.actor}},
+                    {"bool": {"should": [{"match": {"action": a}} for a in ADMIN_ACTIONS], "minimum_should_match": 1}},
                     {
                         "range": {
                             "timestamp": {
@@ -116,7 +116,9 @@ class AdminAbuseRule(BaseRule):
 
             # Risk score based on count
             risk_score = min(0.9, 0.6 + (len(admin_actions) / 50))
+            # Confidence: caps at 0.90, 200 actions → ~0.94 → capped
+            confidence = min(0.90, 0.65 + len(admin_actions) / 700)
 
-            return self.create_detection(event, context=context, risk_score=risk_score)
+            return self.create_detection(event, context=context, risk_score=risk_score, confidence=confidence)
 
         return None
