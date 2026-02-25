@@ -43,7 +43,7 @@ def create_incident_analysis_crew(detection: DetectionEvent) -> Crew:
         ],
         process=Process.sequential,
         verbose=True,
-        memory=True,  # Enable shared context
+        memory=False,  # Disabled: requires OpenAI embeddings API key
     )
 
     return crew

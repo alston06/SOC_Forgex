@@ -19,7 +19,13 @@ async def handle_detection_event(msg_value: bytes) -> None:
     """Handle a detection event from Kafka."""
     try:
         payload = json.loads(msg_value.decode("utf-8"))
-        detection = DetectionEvent(**payload)
+
+        # The detection service wraps the detection in {"tenant_id": ..., "detection": {...}}
+        detection_data = payload.get("detection", payload)
+        if "tenant_id" not in detection_data and "tenant_id" in payload:
+            detection_data["tenant_id"] = payload["tenant_id"]
+
+        detection = DetectionEvent(**detection_data)
 
         logger.info(
             "Processing detection event",

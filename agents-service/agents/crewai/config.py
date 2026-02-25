@@ -2,6 +2,11 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from langchain_openai import ChatOpenAI
+from langchain_community.cache import SQLiteCache
+from langchain_core.globals import set_llm_cache
+import structlog
+
+_logger = structlog.get_logger(__name__)
 
 
 class Settings(BaseSettings):
@@ -36,6 +41,7 @@ class Settings(BaseSettings):
     # Caching Configuration
     llm_cache_enabled: bool = True
     llm_cache_ttl_seconds: int = 3600  # 1 hour
+    llm_cache_db_path: str = "/tmp/crewai_llm_cache.db"  # SQLite cache path
 
     class Config:
         """Pydantic config."""
@@ -44,6 +50,20 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# ── Persistent SQLite LLM cache for CrewAI agents ──────────────────
+# This caches ALL LangChain ChatOpenAI calls (used by every CrewAI agent)
+# to a local SQLite DB so identical prompts are never re-sent to the API.
+# The cache survives container restarts if mounted to a volume.
+if settings.llm_cache_enabled:
+    _cache = SQLiteCache(database_path=settings.llm_cache_db_path)
+    set_llm_cache(_cache)
+    _logger.info(
+        "LangChain SQLite LLM cache enabled for CrewAI agents",
+        db_path=settings.llm_cache_db_path,
+    )
+else:
+    _logger.info("LangChain LLM cache disabled")
 
 
 def get_crewai_llm():

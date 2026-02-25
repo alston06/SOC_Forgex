@@ -98,7 +98,7 @@ async def index_detection(client: OpenSearch, detection: DetectionEvent) -> None
         client: OpenSearch client.
         detection: Detection event to index.
     """
-    ts: datetime = detection.detection_timestamp
+    ts: datetime = detection.timestamp
     month = ts.strftime("%Y-%m")
     index_name = f"{settings.detection_index_prefix}{detection.tenant_id}-{month}"
 
@@ -106,7 +106,7 @@ async def index_detection(client: OpenSearch, detection: DetectionEvent) -> None
         client.index(
             index=index_name,
             id=detection.detection_id,
-            body=detection.model_dump(),
+            body=detection.model_dump(mode="json", by_alias=True),
             refresh=False,
         )
         logger.debug(
@@ -140,7 +140,7 @@ async def index_detections_bulk(
     # Group detections by index name
     buckets = defaultdict(list)
     for d in detections:
-        ts: datetime = d.detection_timestamp
+        ts: datetime = d.timestamp
         month = ts.strftime("%Y-%m")
         index_name = f"{settings.detection_index_prefix}{d.tenant_id}-{month}"
         buckets[index_name].append(d)
@@ -150,7 +150,7 @@ async def index_detections_bulk(
         body = []
         for d in detections_list:
             body.append({"index": {"_index": index_name, "_id": d.detection_id}})
-            body.append(d.model_dump())
+            body.append(d.model_dump(mode="json", by_alias=True))
 
         if not body:
             continue

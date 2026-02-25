@@ -1,4 +1,5 @@
 """API endpoints for CrewAI service."""
+import os
 import uuid
 from fastapi import APIRouter, Depends, Header, HTTPException, BackgroundTasks
 import structlog
@@ -30,15 +31,38 @@ async def internal_auth(authorization: str = Header(...)) -> None:
 
 @router.get("/cache/stats")
 async def cache_stats() -> dict:
-    """Get LLM cache statistics."""
-    return get_cache_stats()
+    """Get LLM cache statistics (both direct client and LangChain/CrewAI caches)."""
+    direct_stats = get_cache_stats()
+
+    # SQLite cache file size
+    sqlite_path = settings.llm_cache_db_path
+    sqlite_size_kb = 0
+    if os.path.exists(sqlite_path):
+        sqlite_size_kb = round(os.path.getsize(sqlite_path) / 1024, 1)
+
+    return {
+        "direct_llm_cache": direct_stats,
+        "crewai_langchain_cache": {
+            "type": "SQLiteCache",
+            "enabled": settings.llm_cache_enabled,
+            "db_path": sqlite_path,
+            "db_size_kb": sqlite_size_kb,
+        },
+    }
 
 
 @router.post("/cache/clear")
 async def cache_clear() -> dict:
-    """Clear LLM cache (use with caution!)."""
+    """Clear both LLM caches (use with caution!)."""
     clear_cache()
-    return {"status": "cleared"}
+
+    # Also clear the SQLite cache
+    from langchain_core.globals import get_llm_cache
+    langchain_cache = get_llm_cache()
+    if langchain_cache is not None:
+        langchain_cache.clear()
+
+    return {"status": "cleared", "note": "Both direct and CrewAI LangChain caches cleared"}
 
 
 @router.post("/kickoff", response_model=KickoffResponse, dependencies=[Depends(internal_auth)])

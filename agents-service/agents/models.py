@@ -10,12 +10,12 @@ class DetectionEvent(BaseModel):
 
     detection_id: str
     tenant_id: str
-    timestamp: datetime
+    timestamp: datetime = Field(alias="detection_timestamp")
     triggered_events: List[str] = Field(default_factory=list)
     rule_id: str
     severity: str  # LOW|MEDIUM|HIGH|CRITICAL
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
-    description: str
+    description: str = Field(alias="rule_description")
     entities: Dict[str, List[str]] = Field(default_factory=dict)
     evidence: Dict[str, Any] = Field(default_factory=dict)
 
@@ -23,7 +23,10 @@ class DetectionEvent(BaseModel):
     risk_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     status: Optional[str] = None
 
-    model_config = {"json_encoders": {datetime: lambda v: v.isoformat()}}
+    model_config = {
+        "populate_by_name": True,
+        "json_encoders": {datetime: lambda v: v.isoformat()},
+    }
 
 
 class KickoffRequest(BaseModel):

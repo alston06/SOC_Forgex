@@ -98,7 +98,7 @@ def index_normalized_events_bulk(
         body = []
         for e in evs:
             body.append({"index": {"_index": index_name, "_id": e.event_id}})
-            body.append(e.model_dump())
+            body.append(e.model_dump(mode="json"))
 
         if not body:
             continue

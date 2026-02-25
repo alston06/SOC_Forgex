@@ -1,0 +1,20 @@
+[project]
+name = "soc-forgex-demo"
+version = "0.1.0"
+description = "Demo FastAPI app showing SOC Forgex security SDK in action"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "forgex-security-sdk[fastapi]",
+]
+
+[tool.uv.sources]
+forgex-security-sdk = { path = "../security_sdk", editable = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

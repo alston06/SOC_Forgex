@@ -68,14 +68,27 @@ async def process_detection_message(
         detection_count=len(detections),
     )
 
-    # Index each detection to OpenSearch
-    for detection in detections:
-        await index_detection(opensearch, detection)
-
-    # Publish each detection to Kafka
+    # Index each detection to OpenSearch and publish to Kafka
     producer = app_state["kafka_producer"]
     for detection in detections:
-        await publish_detection(producer, detection)
+        try:
+            await index_detection(opensearch, detection)
+        except Exception as e:
+            logger.error(
+                "Failed to index detection",
+                detection_id=detection.detection_id,
+                error=str(e),
+                exc_info=True,
+            )
+        try:
+            await publish_detection(producer, detection)
+        except Exception as e:
+            logger.error(
+                "Failed to publish detection",
+                detection_id=detection.detection_id,
+                error=str(e),
+                exc_info=True,
+            )
 
     logger.info(
         "Detection processing complete",

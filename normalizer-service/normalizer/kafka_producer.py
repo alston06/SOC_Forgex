@@ -38,7 +38,7 @@ async def publish_normalized_event(
     key = f"{normalized_event.tenant_id}-{normalized_event.event_id}"
     payload = {
         "tenant_id": normalized_event.tenant_id,
-        "event": normalized_event.model_dump(),
+        "event": normalized_event.model_dump(mode="json"),
     }
 
     await producer.send_and_wait(

@@ -39,7 +39,7 @@ async def publish_detection(
     key = f"{detection.tenant_id}-{detection.detection_id}"
     payload = {
         "tenant_id": detection.tenant_id,
-        "detection": detection.model_dump(),
+        "detection": detection.model_dump(mode="json", by_alias=True),
     }
 
     await producer.send_and_wait(

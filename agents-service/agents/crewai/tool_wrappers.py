@@ -1,70 +1,99 @@
-"""CrewAI-compatible synchronous tool wrappers for async functions."""
-import asyncio
+"""CrewAI-compatible synchronous tool wrappers.
+
+These use synchronous ``requests`` calls so they work correctly when
+CrewAI invokes them from inside an already-running asyncio event loop.
+"""
 import json
-from typing import Any, Dict, Optional
-from crewai.tools import tool
+from typing import Any, Dict, Optional, Type
+from datetime import datetime, timedelta
+
+import requests
+from crewai.tools import tool, BaseTool
+from pydantic import BaseModel, Field
 import structlog
 
-from .tools.log_query import log_query_tool
-from .tools.case_tool import case_tool_open, case_tool_update, case_tool_close
-from .tools.agent_output import agent_output_tool
 from .config import settings
 
 logger = structlog.get_logger(__name__)
 
+INTERNAL_HEADERS = {
+    "Authorization": f"Bearer {settings.internal_auth_token}",
+    "Content-Type": "application/json",
+}
 
-def run_async(coro):
-    """Run an async coroutine synchronously."""
-    try:
-        return asyncio.run(coro)
-    except Exception as e:
-        logger.error("Async execution failed", error=str(e))
-        raise
+# ── Helper ────────────────────────────────────────────────────────────
 
 
-@tool
-def query_logs_sync(
-    tenant_id: str,
-    minutes_back: int = 30,
-    limit: int = 100,
-    query_actor: Optional[str] = None,
-    query_ip: Optional[str] = None,
-    query_normalized_path: Optional[str] = None,
-) -> str:
-    """Query normalized logs from normalizer service (CrewAI wrapper).
+def _post(url: str, payload: dict, timeout: float = 10.0) -> requests.Response:
+    """Synchronous POST with internal auth."""
+    resp = requests.post(url, headers=INTERNAL_HEADERS, json=payload, timeout=timeout)
+    resp.raise_for_status()
+    return resp
 
-    Args:
-        tenant_id: Tenant ID to query for
-        minutes_back: Time window in minutes to look back (default: 30)
-        limit: Maximum number of events to return (default: 100)
-        query_actor: Optional actor filter
-        query_ip: Optional IP filter
-        query_normalized_path: Optional path filter
 
-    Returns:
-        JSON string of log events for CrewAI consumption
-    """
-    query = {}
-    if query_actor:
-        query["actor"] = query_actor
-    if query_ip:
-        query["ip"] = query_ip
-    if query_normalized_path:
-        query["normalized_path"] = query_normalized_path
+# ── Tools ─────────────────────────────────────────────────────────────
 
-    events = run_async(log_query_tool(
-        tenant_id=tenant_id,
-        query=query,
-        minutes_back=minutes_back,
-        limit=limit,
-    ))
 
-    # Return as formatted string for CrewAI
-    return json.dumps({
-        "event_count": len(events),
-        "events": events[:10],  # Limit for context window
-        "truncated": len(events) > 10
-    }, indent=2)
+class _QueryLogsInput(BaseModel):
+    tenant_id: str = Field(description="Tenant ID to query for")
+    minutes_back: int = Field(default=30, description="Time window in minutes to look back")
+    limit: int = Field(default=100, description="Maximum number of events to return")
+    query_actor: str = Field(default="", description="Optional actor/user filter")
+    query_ip: str = Field(default="", description="Optional source IP filter")
+    query_normalized_path: str = Field(default="", description="Optional URL path filter")
+
+
+class QueryLogsTool(BaseTool):
+    name: str = "query_logs_sync"
+    description: str = (
+        "Query normalized logs from the normalizer service. "
+        "Use this to retrieve recent security events for a tenant. "
+        "Only tenant_id is required; all other arguments are optional filters."
+    )
+    args_schema: Type[BaseModel] = _QueryLogsInput
+
+    def _run(
+        self,
+        tenant_id: str,
+        minutes_back: int = 30,
+        limit: int = 100,
+        query_actor: str = "",
+        query_ip: str = "",
+        query_normalized_path: str = "",
+    ) -> str:
+        query: Dict[str, str] = {}
+        if query_actor:
+            query["actor"] = query_actor
+        if query_ip:
+            query["ip"] = query_ip
+        if query_normalized_path:
+            query["normalized_path"] = query_normalized_path
+
+        now = datetime.utcnow()
+        payload = {
+            "tenant_id": tenant_id,
+            "start_time": (now - timedelta(minutes=minutes_back)).isoformat(),
+            "end_time": now.isoformat(),
+            "query": query,
+            "limit": limit,
+        }
+
+        try:
+            url = f"{settings.normalizer_service_url}{settings.normalizer_log_query_endpoint}"
+            resp = _post(url, payload)
+            events = resp.json().get("events", [])
+        except Exception as e:
+            logger.error("Log query failed", error=str(e))
+            events = []
+
+        return json.dumps({
+            "event_count": len(events),
+            "events": events[:10],
+            "truncated": len(events) > 10,
+        }, indent=2, default=str)
+
+
+query_logs_sync = QueryLogsTool()
 
 
 @tool
@@ -87,21 +116,24 @@ def open_case_sync(
     Returns:
         Case ID as string
     """
-    detection_dict = {
+    payload = {
+        "tenant_id": tenant_id,
         "detection_id": detection_id,
-        "rule_id": rule_id,
+        "action": "open",
+        "summary": description,
         "severity": severity,
-        "description": description,
     }
 
-    case_id = run_async(case_tool_open(
-        tenant_id=tenant_id,
-        detection=detection_dict,
-        summary=description,
-        severity=severity,
-    ))
-
-    return case_id
+    try:
+        url = f"{settings.case_service_url}{settings.case_action_endpoint}"
+        resp = _post(url, payload)
+        data = resp.json()
+        case_id = data.get("case_id", data.get("incident_id", "unknown"))
+        logger.info("Case opened", case_id=case_id, detection_id=detection_id)
+        return str(case_id)
+    except Exception as e:
+        logger.error("Failed to open case", error=str(e))
+        return f"error: {e}"
 
 
 @tool
@@ -124,17 +156,24 @@ def update_case_sync(
     Returns:
         Confirmation message
     """
-    detection_dict = {"detection_id": detection_id}
+    payload: Dict[str, Any] = {
+        "tenant_id": tenant_id,
+        "case_id": case_id,
+        "detection_id": detection_id,
+        "action": "update",
+    }
+    if new_severity:
+        payload["severity"] = new_severity
+    if new_summary:
+        payload["summary"] = new_summary
 
-    run_async(case_tool_update(
-        tenant_id=tenant_id,
-        case_id=case_id,
-        detection=detection_dict,
-        severity=new_severity,
-        summary=new_summary,
-    ))
-
-    return f"Case {case_id} updated successfully"
+    try:
+        url = f"{settings.case_service_url}{settings.case_action_endpoint}"
+        _post(url, payload)
+        return f"Case {case_id} updated successfully"
+    except Exception as e:
+        logger.error("Failed to update case", error=str(e))
+        return f"error: {e}"
 
 
 @tool
@@ -153,15 +192,20 @@ def close_case_sync(
     Returns:
         Confirmation message
     """
-    detection_dict = {"detection_id": detection_id}
+    payload = {
+        "tenant_id": tenant_id,
+        "case_id": case_id,
+        "detection_id": detection_id,
+        "action": "close",
+    }
 
-    run_async(case_tool_close(
-        tenant_id=tenant_id,
-        case_id=case_id,
-        detection=detection_dict,
-    ))
-
-    return f"Case {case_id} closed successfully"
+    try:
+        url = f"{settings.case_service_url}{settings.case_action_endpoint}"
+        _post(url, payload)
+        return f"Case {case_id} closed successfully"
+    except Exception as e:
+        logger.error("Failed to close case", error=str(e))
+        return f"error: {e}"
 
 
 @tool
@@ -185,10 +229,16 @@ def store_agent_output_sync(
     except json.JSONDecodeError:
         output_dict = {"raw_output": output_json}
 
-    run_async(agent_output_tool(
-        case_id=case_id,
-        agent_type=agent_type,
-        output=output_dict,
-    ))
+    payload = {
+        "case_id": case_id,
+        "agent_type": agent_type,
+        "output": output_dict,
+    }
 
-    return f"Output from {agent_type} stored for case {case_id}"
+    try:
+        url = f"{settings.case_service_url}{settings.agent_output_endpoint}"
+        _post(url, payload)
+        return f"Output from {agent_type} stored for case {case_id}"
+    except Exception as e:
+        logger.error("Failed to store agent output", error=str(e))
+        return f"error: {e}"

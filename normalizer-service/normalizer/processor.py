@@ -74,8 +74,8 @@ async def process_batch_message(message: Dict[str, Any], app_state: Dict[str, An
         logger.debug("No events normalized", tenant_id=tenant_id)
         return
 
-    # Index into OpenSearch
-    await index_normalized_events_bulk(
+    # Index into OpenSearch (sync function — no await)
+    index_normalized_events_bulk(
         app_state["opensearch"], normalized_events
     )
 
